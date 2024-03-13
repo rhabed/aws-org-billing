@@ -1,5 +1,4 @@
 black
 boto3
-email-validator
 pydantic
 tabulate
