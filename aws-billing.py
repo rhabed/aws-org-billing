@@ -103,6 +103,14 @@ def aws_billing_service(
             {"Type": "DIMENSION", "Key": "LINKED_ACCOUNT"},
             {"Type": "DIMENSION", "Key": "SERVICE"},
         ],
+        Filter={
+            "Not": {
+                "Dimensions": {
+                    "Key": "RECORD_TYPE",
+                    "Values": ["Tax", "Credit", "Refund", "Distributor Discount"],
+                }
+            },
+        },
     )
 
     # Process results and create table data
@@ -143,6 +151,14 @@ def aws_billing(
         Granularity=granularity,
         Metrics=["UnblendedCost"],
         GroupBy=[{"Type": "DIMENSION", "Key": "LINKED_ACCOUNT"}],
+        Filter={
+            "Not": {
+                "Dimensions": {
+                    "Key": "RECORD_TYPE",
+                    "Values": ["Tax", "Credit", "Refund", "Distributor Discount"],
+                }
+            },
+        },
     )
 
     # Process results and create table data
@@ -162,7 +178,8 @@ def aws_billing(
 
 def main():
     aws_billing(get_ce_client(), "2024-02-01", "2024-03-01")
-    aws_billing_service(get_ce_client(), "2024-02-01", "2024-03-01")
+    # aws_billing_service(get_ce_client(), "2024-02-01", "2024-03-01")
+    # get_list_of_accounts()
 
 
 if __name__ == "__main__":
