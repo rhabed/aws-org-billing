@@ -2,11 +2,12 @@ import boto3
 import os
 from pprint import pprint
 from tabulate import tabulate
-from objects.classes import Account, StatusEnum
+from objects.classes import Account, StatusEnum, find_account
 from typing import Optional, List
 from pydantic import ValidationError
 
 AWS_PROFILE = os.getenv("AWS_PROFILE")
+ACCOUNT_LIST = list()
 
 
 def get_org_client(aws_profile_name=AWS_PROFILE):
@@ -72,7 +73,7 @@ def get_list_of_accounts(boto3_client: boto3.client) -> List[Account]:
                 for acc in account_list
             ]
         )
-        print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
+        # print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
 
     return account_list
 
@@ -82,6 +83,7 @@ def aws_billing_service(
     boto3_client: boto3.client,
     start_date: str,
     end_date: str,
+    account_list: List,
     granularity: str = "MONTHLY",
 ) -> None:
     """Fetches AWS billing cost data for the specified period and granularity,
@@ -116,13 +118,16 @@ def aws_billing_service(
     # Process results and create table data
     table = [["AccountId", "Service", "Amount", "Unit"]]
     for group in response.get("ResultsByTime", [])[0].get("Groups", []):
-        accountid = group.get("Keys")[0]
+        account_name = accountid = group.get("Keys")[0]
+        account = find_account(account_list, "account_id", accountid)
+        if account:
+            account_name = getattr(account, "account_name")
         service = group.get("Keys")[1]
         amount = round(
             float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 2
         )
         unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
-        table.append([accountid, service, amount, unit])
+        table.append([account_name, service, amount, unit])
 
     # Print table only if there's data (avoid empty table output)
     if table:
@@ -133,6 +138,7 @@ def aws_billing(
     boto3_client: boto3.client,
     start_date: str,
     end_date: str,
+    account_list: List,
     granularity: str = "MONTHLY",
 ) -> None:
     """Fetches AWS billing cost data for the specified period and granularity,
@@ -164,12 +170,16 @@ def aws_billing(
     # Process results and create table data
     table = [["AccountId", "Amount", "Unit"]]
     for group in response.get("ResultsByTime", [])[0].get("Groups", []):
-        accountid = group.get("Keys")[0]
+        account_name = accountid = group.get("Keys")[0]
+        account = find_account(account_list, "account_id", accountid)
+        if account:
+            account_name = getattr(account, "account_name")
+
         amount = round(
             float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 2
         )
         unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
-        table.append([accountid, amount, unit])
+        table.append([account_name, amount, unit])
 
     # Print table only if there's data (avoid empty table output)
     if table:
@@ -177,9 +187,10 @@ def aws_billing(
 
 
 def main():
-    aws_billing(get_ce_client(), "2024-02-01", "2024-03-01")
-    # aws_billing_service(get_ce_client(), "2024-02-01", "2024-03-01")
-    # get_list_of_accounts()
+    ACCOUNT_LIST = get_list_of_accounts(get_org_client())
+
+    aws_billing(get_ce_client(), "2024-02-01", "2024-03-01", ACCOUNT_LIST)
+    aws_billing_service(get_ce_client(), "2024-02-01", "2024-03-01", ACCOUNT_LIST)
 
 
 if __name__ == "__main__":
