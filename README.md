@@ -8,7 +8,9 @@ This repository contains three Python functions that interact with the AWS Cost 
 
 # Installation
 `python3 -m venv .vevn`
+
 `. .venv/bin/activate`
+
 `python3 -m pip install -r requirements`
 
 # Execution
