@@ -14,3 +14,10 @@ class Account(BaseModel):
     account_name: str
     root_email: EmailStr
     status: StatusEnum
+
+
+def find_account(account_list, attribute, value):
+    for account in account_list:
+        if getattr(account, attribute) == value:
+            return account
+    return None
