@@ -1,0 +1,26 @@
+name: Check for Branch Drift (Main vs Dev)
+
+on:
+  schedule:
+    - cron: "0/15 * * * *"
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Compare Branches
+        uses: GitSCM/compare-branches@v2.0.0  # This action might require installation
+        with:
+          base: main  # Base branch for comparison
+          head: dev  # Branch to compare against main
+          # Optional: Set `include` to specific files or patterns to target.
+      - name: Create Draft PR (if drift detected)
+        uses: actions/create-pull-request@v4
+        if: ${{ steps.compare-branches.outputs.status != 'identical' }}  # Only if branches differ
+        with:
+          title: 'Potential Drift Detected (Main vs Dev)'
+          body: 'This draft PR was automatically created because there might be differences between main and dev branches. Please review and merge if intended.'
+          head: dev
+          base: main
+          draft: true  # Create a draft PR
