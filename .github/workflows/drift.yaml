@@ -8,17 +8,19 @@ jobs:
   drift-check:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Check for drift and create PR if necessary
+      - uses: actions/checkout@v4
+      - name: Check for Main Branch Diff
         run: |
-          if git diff --quiet origin/dev origin/main; then
-            echo "No drift detected between dev and main branches."
-          else
-            git config --global user.email "actions@github.com"
-            git config --global user.name "GitHub Actions"
-            gh pr create --draft --base main --head dev --title "Merge dev into main" --body "Automatically created pull request to merge dev into main due to drift detection."
+          git fetch origin main:main  # Fetch latest main branch
+          main_branch_sha=$(git rev-parse origin/main)
+          dev_branch_sha=$(git rev-parse HEAD)
+          if [ "$main_branch_sha" != "$dev_branch_sha" ]; then
+            git diff --name-only main HEAD > drift_diff.txt  # Capture differences in a file
+            if [ -s drift_diff.txt ]; then  # Check if there's a diff
+              DIFF_CONTENT=$(cat drift_diff.txt)
+              gh pr create --draft --title "Potential Drift Detected (dev: $dev_branch_sha)" -b "Detected drift in: $DIFF_CONTENT"  # Create a draft PR with details
+              rm drift_diff.txt  # Clean up the temporary file
+            fi
           fi
     env:
       GH_TOKEN: ${{ github.token }}
