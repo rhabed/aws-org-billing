@@ -1,4 +1,4 @@
-# AWS Cost Management Scripts (Work in Progress)
+# AWS Cost Management Scripts (Work in Progress and Test)
 
 This repository contains three Python functions that interact with the AWS Cost Management Service to retrieve and report billing information:
 
