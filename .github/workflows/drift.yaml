@@ -1,15 +1,14 @@
 name: Check for Branch Drift (Main vs Dev)
 
-on: push
-  # schedule:
-  #   - cron: "*/15 * * * *"
+on:
+  schedule:
+    - cron: "*/15 * * * *"
 
 jobs:
   drift-check:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-      
     steps:
       - uses: actions/checkout@v4
       - name: Check for Main Branch Diff
