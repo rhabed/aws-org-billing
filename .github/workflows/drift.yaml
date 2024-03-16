@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Check for Main Branch Diff
         run: |
-          git fetch origin main:main  # Fetch latest main branch
+          git fetch origin main  # Fetch latest main branch
           main_branch_sha=$(git rev-parse origin/main)
           dev_branch_sha=$(git rev-parse origin/dev)
           if [ "$main_branch_sha" != "$dev_branch_sha" ]; then
