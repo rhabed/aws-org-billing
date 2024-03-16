@@ -17,9 +17,10 @@ jobs:
           if [ "$main_branch_sha" != "$dev_branch_sha" ]; then
             git diff --name-only main dev > drift_diff.txt  # Capture differences in a file
             if [ -s drift_diff.txt ]; then  # Check if there's a diff
-              git checkout -B drift_branch  # Create a new branch for the diff
-              git add drift_diff.txt
-              git commit -m "Drift detected between main and dev (SHA: $dev_branch_sha)"
+              # git checkout -B drift_branch  # Create a new branch for the diff
+              # git add drift_diff.txt
+              # git commit -m "Drift detected between main and dev (SHA: $dev_branch_sha)"
+              git checkout dev
               gh pr create --draft --title "Potential Drift Detected (dev: $dev_branch_sha)" -F drift_diff.txt  # Create a draft PR with details
             fi
           fi
