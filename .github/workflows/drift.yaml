@@ -23,5 +23,5 @@ jobs:
               rm drift_diff.txt  # Clean up the temporary file
             fi
           fi
-    env:
-      GITHUB_TOKEN: ${{ secrets.token }}
+    # env:
+    #   GITHUB_TOKEN: ${{ secrets.token }}
