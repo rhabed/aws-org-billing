@@ -13,10 +13,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check for Main Branch Diff
         run: |
-          git fetch origin main:main  # Fetch latest main branch
           GIT_DIFF=$(git diff main dev)
-          if [ -z "${GIT_DIFF}" ]; then
-            echo "No drift detected between dev and main branches."
+          if [[ -z "${GIT_DIFF}" ]]; then
+            echo "main is up to date with all commits from dev"
           else
             PR_OUTPUT=$(gh pr list --base main --head dev 2>&1)
             # Check the exit code of the gh pr list command
@@ -24,9 +23,9 @@ jobs:
               # If exit code is 0 (no errors), check for empty output (no PRs)
               if [[ -z "$PR_OUTPUT" ]]; then
                 echo "No PR found"  # No PR found
-                gh pr create --draft --title "Drift Detected dev and main" -b "Detected drift between base main branch and head dev branch"  # Create a draft PR with details
+                gh pr create --draft --title "Drift Detected base:main and head:dev" -b "Detected drift between base main branch and head dev branches"  # Create a draft PR with details
               else
-                echo "PR already exists"  # PR(s) found
+                echo "A PR from head:dev to base:main already exists!""  # PR(s) found
               fi
             else
               echo "false"  # Error occurred during PR listing (likely not relevant for existence check)
