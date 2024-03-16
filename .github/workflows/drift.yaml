@@ -20,3 +20,5 @@ jobs:
             git config --global user.name "GitHub Actions"
             gh pr create --draft --base main --head dev --title "Merge dev into main" --body "Automatically created pull request to merge dev into main due to drift detection."
           fi
+    env:
+      GH_TOKEN: ${{ github.token }}
