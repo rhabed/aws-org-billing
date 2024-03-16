@@ -1,0 +1,37 @@
+name: Check for Branch Drift (Main vs Dev)
+
+on: push
+  # schedule:
+  #   - cron: "*/15 * * * *"
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for Main Branch Diff
+        run: |
+          git fetch origin main:main  # Fetch latest main branch
+          GIT_DIFF=$(git diff main dev)
+          if [ -z "${GIT_DIFF}" ]; then
+            echo "No drift detected between dev and main branches."
+          else
+            PR_OUTPUT=$(gh pr list --base main --head dev 2>&1)
+            # Check the exit code of the gh pr list command
+            if [ $? -eq 0 ]; then
+              # If exit code is 0 (no errors), check for empty output (no PRs)
+              if [[ -z "$PR_OUTPUT" ]]; then
+                echo "No PR found"  # No PR found
+                gh pr create --draft --title "Drift Detected dev and main" -b "Detected drift between base main branch and head dev branch"  # Create a draft PR with details
+              else
+                echo "PR already exists"  # PR(s) found
+              fi
+            else
+              echo "false"  # Error occurred during PR listing (likely not relevant for existence check)
+            fi
+          fi
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
