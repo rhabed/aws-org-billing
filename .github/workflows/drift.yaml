@@ -18,6 +18,7 @@ jobs:
             git diff --name-only main HEAD > drift_diff.txt  # Capture differences in a file
             if [ -s drift_diff.txt ]; then  # Check if there's a diff
               DIFF_CONTENT=$(cat drift_diff.txt)
+              gh auth login
               gh pr create --draft --title "Potential Drift Detected (dev: $dev_branch_sha)" -b "Detected drift in: $DIFF_CONTENT"  # Create a draft PR with details
               rm drift_diff.txt  # Clean up the temporary file
             fi
