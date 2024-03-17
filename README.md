@@ -17,3 +17,9 @@ This repository contains three Python functions that interact with the AWS Cost 
 Ensure you have an environment variable named AWS_PROFILE set before running the following command.
 
 `python3 aws-billing.py`
+
+# Contributing
+[Contributing](CONTRIBUTING.md)
+
+# License
+[License](LICENSE)
