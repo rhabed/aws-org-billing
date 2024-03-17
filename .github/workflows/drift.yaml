@@ -16,9 +16,9 @@ jobs:
       - name: Check for Main Branch Diff
         run: |
           git branch -v
-          git fetch origin dev
-          git fetch origin HEAD
-          git branch -v
+          # git fetch origin dev
+          # git fetch origin HEAD
+          # git branch -v
           GIT_DIFF=$(git diff main dev)
           if [[ -z "${GIT_DIFF}" ]]; then
             echo "main is up to date with all commits from dev"
