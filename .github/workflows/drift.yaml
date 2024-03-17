@@ -16,7 +16,7 @@ jobs:
       - name: Check for Main Branch Diff
         run: |
           git branch -v
-          # git fetch origin dev
+          git fetch origin dev
           # git fetch origin HEAD
           # git branch -v
           GIT_DIFF=$(git diff main dev)
