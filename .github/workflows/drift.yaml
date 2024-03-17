@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check for Main Branch Diff
         run: |
-          GIT_DIFF=$(git diff main dev)
+          GIT_DIFF=$(git diff origin/main..origin/dev)
           if [[ -z "${GIT_DIFF}" ]]; then
             echo "main is up to date with all commits from dev"
           else
