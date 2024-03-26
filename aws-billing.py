@@ -214,7 +214,7 @@ def tabulate_to_excel(
 
 
 def main():
-    
+
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
 
     billing_table = aws_billing(
