@@ -4,4 +4,3 @@ pydantic
 tabulate
 openpyxl
 pandas
-click
