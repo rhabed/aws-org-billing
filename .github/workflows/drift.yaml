@@ -2,7 +2,7 @@ name: Check for Branch Drift (Main vs Dev)
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "* * */3 * *"
 
 jobs:
   drift-check:

@@ -2,3 +2,6 @@ black
 boto3
 pydantic
 tabulate
+openpyxl
+pandas
+click
