@@ -218,7 +218,7 @@ def main():
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
 
     billing_table = aws_billing(
-        get_ce_client(), "2024-02-01", "2024-03-01", ACCOUNT_LIST
+        get_ce_client(), "2024-03-01", "2024-04-01", ACCOUNT_LIST
     )
     # Create DataFrame using tabulate with headers="firstrow"
     tabulate_to_excel(
@@ -227,7 +227,7 @@ def main():
         filename="excel_output/billing.xlsx",
     )
     billing_table = aws_billing_service(
-        get_ce_client(), "2024-02-01", "2024-03-01", ACCOUNT_LIST
+        get_ce_client(), "2024-03-01", "2024-04-01", ACCOUNT_LIST
     )
     tabulate_to_excel(
         data=billing_table,
