@@ -1,6 +1,7 @@
 black
 boto3
 pydantic
+pydantic[email]
 tabulate
 openpyxl
 pandas
