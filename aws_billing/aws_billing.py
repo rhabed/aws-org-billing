@@ -2,7 +2,7 @@ import boto3
 import os
 from pprint import pprint
 from tabulate import tabulate
-from aws_billing.objects.classes import Account, StatusEnum, find_account
+from objects.classes import Account, StatusEnum, find_account
 from typing import Optional, List
 from pydantic import ValidationError
 import pandas as pd
