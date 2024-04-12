@@ -2,7 +2,7 @@ import boto3
 import os
 from pprint import pprint
 from tabulate import tabulate
-from objects.classes import Account, StatusEnum, find_account
+from aws_billing.objects.classes import Account, StatusEnum, find_account
 from typing import Optional, List
 from pydantic import ValidationError
 import pandas as pd
@@ -231,7 +231,7 @@ def main():
     )
     tabulate_to_excel(
         data=billing_table,
-        headers=["Account Nane", "AWS Service", "kloudr Charges", "Currency"],
+        headers=["Account Name", "AWS Service", "kloudr Charges", "Currency"],
         filename="excel_output/billing_services.xlsx",
     )
 
