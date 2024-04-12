@@ -108,12 +108,12 @@ class TestAwsBilling(unittest.TestCase):
 
     def test_tabulate_to_excel(self):
         data = [
-            ["Account Name", "AWS Service", "kloudr Charges", "Currency"],
+            ["Account Name", "AWS Service", "Charges", "Currency"],
             ["account_name", "EC2", 100.00, "USD"],
         ]
         tabulate_to_excel(
             data,
-            headers=["Account Name", "AWS Service", "kloudr Charges", "Currency"],
+            headers=["Account Name", "AWS Service", "Charges", "Currency"],
             filename="test.xlsx",
             index=False,
         )
