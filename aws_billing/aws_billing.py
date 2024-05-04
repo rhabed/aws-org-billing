@@ -298,7 +298,6 @@ def main():
     end_date = "2024-05-01"
     tagKey = "Name"
     account_name = "Account Name"
-
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
     account = find_account(ACCOUNT_LIST, "account_name", account_name)
     if account:
