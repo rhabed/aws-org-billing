@@ -314,7 +314,9 @@ def main():
         filename="excel_output/billing_services.xlsx",
     )
 
-    tags = get_cost_allocation_tags(get_ce_client(), str_date, end_date, tagKey, account_id)
+    tags = get_cost_allocation_tags(
+        get_ce_client(), str_date, end_date, tagKey, account_id
+    )
     billing_table = aws_billing_tags(
         get_ce_client(), str_date, end_date, ACCOUNT_LIST, tagKey, tags
     )
