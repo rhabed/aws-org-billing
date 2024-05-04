@@ -297,9 +297,13 @@ def main():
     str_date = "2024-04-01"
     end_date = "2024-05-01"
     tagKey = "Name"
-    account_id = "123456789012"
-
+    account_name = "Account Name"
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
+    account = find_account(ACCOUNT_LIST, "account_name", account_name)
+    if account:
+        account_id = account.account_id
+        print(f"account_id: {account_id}")
+
     billing_table = aws_billing(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
     # Create DataFrame using tabulate with headers="firstrow"
     tabulate_to_excel(
@@ -311,7 +315,7 @@ def main():
     tabulate_to_excel(
         data=billing_table,
         headers=["Account Name", "AWS Service", "Charges", "Currency"],
-        filename="excel_output/billing_services.xlsx",
+        filename=f"excel_output/billing_services.xlsx_{end_date}",
     )
 
     tags = get_cost_allocation_tags(
@@ -324,7 +328,7 @@ def main():
     tabulate_to_excel(
         data=billing_table,
         headers=["Tag", "AWS Service", "Charges", "Currency"],
-        filename="excel_output/billing_tags_byName.xlsx",
+        filename=f"excel_output/billing_tags_by{tagKey}_{end_date}.xlsx",
     )
 
 
