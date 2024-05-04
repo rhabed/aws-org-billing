@@ -95,10 +95,12 @@ def process_billing_results(groups, account_list) -> list:
 
     table = []
     for group in groups:
-        account_name = accountid = group.get("Keys")[0]
+        name = accountid = group.get("Keys")[0]
         account = find_account(account_list, "account_id", accountid)
         if account:
-            account_name = getattr(account, "account_name")
+            name = getattr(account, "account_name")
+        if name.startswith("Name$"):
+            name = name[5:]
 
         service = (
             group.get("Keys", [])[1] if len(group.get("Keys")) > 1 else "Total"
@@ -108,7 +110,7 @@ def process_billing_results(groups, account_list) -> list:
         )
         unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
         if amount != 0:
-            table.append([account_name, service, amount, unit])
+            table.append([name, service, amount, unit])
     return table
 
 
@@ -185,6 +187,80 @@ def aws_billing(
     return table
 
 
+def get_cost_allocation_tags(
+    boto3_client: boto3.client,
+    start_date: str,  # format: yyyy-mm-dd
+    end_date: str,
+    tagKey: str,
+):
+
+    response = boto3_client.get_tags(
+        TimePeriod={"Start": start_date, "End": end_date},
+        TagKey=tagKey,
+        Filter={
+            "Dimensions": {
+                "Key": "LINKED_ACCOUNT",
+                "Values": ["943316794729"],
+            }
+        },
+    )
+    return response.get("Tags", [])
+
+
+def aws_billing_tags(
+    boto3_client: boto3.client,
+    start_date: str,
+    end_date: str,
+    account_list: List,
+    tagKey: str,
+    tagValue: List,
+    granularity: str = "MONTHLY",
+) -> None:
+    # still cannot read the correct services
+
+    response = boto3_client.get_cost_and_usage(
+        TimePeriod={"Start": start_date, "End": end_date},
+        Granularity=granularity,
+        Metrics=["UnblendedCost"],
+        GroupBy=[
+            {"Type": "TAG", "Key": tagKey},
+            {"Type": "DIMENSION", "Key": "SERVICE"},  # Service grouping
+        ],
+        Filter={
+            "And": [
+                {
+                    "Not": {
+                        "Dimensions": {
+                            "Key": "RECORD_TYPE",
+                            "Values": [
+                                "Tax",
+                                "Credit",
+                                "Refund",
+                                "Distributor Discount",
+                            ],
+                        }
+                    }
+                },
+                {
+                    "Tags": {
+                        "Key": tagKey,
+                        "Values": tagValue,
+                    },
+                },
+            ]
+        },
+    )
+    print(response)
+    table = process_billing_results(
+        response.get("ResultsByTime", [])[0].get("Groups", []), account_list
+    )
+
+    if table:
+        print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
+
+    return table
+
+
 def tabulate_to_excel(
     data,
     headers="firstrow",
@@ -218,24 +294,34 @@ def tabulate_to_excel(
 
 def main():
 
-    ACCOUNT_LIST = get_list_of_accounts(get_org_client())
+    str_date = "2024-04-01"
+    end_date = "2024-05-01"
+    tagKey = "Name"
 
-    billing_table = aws_billing(
-        get_ce_client(), "2024-03-01", "2024-04-01", ACCOUNT_LIST
-    )
+    ACCOUNT_LIST = get_list_of_accounts(get_org_client())
+    billing_table = aws_billing(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
     # Create DataFrame using tabulate with headers="firstrow"
     tabulate_to_excel(
         data=billing_table,
         headers=["Account Name", "AWS Service", "Charges", "Currency"],
         filename="excel_output/billing.xlsx",
     )
-    billing_table = aws_billing_service(
-        get_ce_client(), "2024-03-01", "2024-04-01", ACCOUNT_LIST
-    )
+    print(billing_table)
     tabulate_to_excel(
         data=billing_table,
         headers=["Account Name", "AWS Service", "Charges", "Currency"],
         filename="excel_output/billing_services.xlsx",
+    )
+
+    tags = get_cost_allocation_tags(get_ce_client(), str_date, end_date, tagKey)
+    billing_table = aws_billing_tags(
+        get_ce_client(), str_date, end_date, ACCOUNT_LIST, tagKey, tags
+    )
+    print(billing_table)
+    tabulate_to_excel(
+        data=billing_table,
+        headers=["Tag", "AWS Service", "Charges", "Currency"],
+        filename="excel_output/billing_tags_byName.xlsx",
     )
 
 
