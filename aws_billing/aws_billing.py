@@ -5,7 +5,7 @@ from tabulate import tabulate
 import sys
 
 sys.path.insert(0, "./aws_billing/objects")
-from classes import Account, StatusEnum, find_account
+from classes import Account, find_account
 from typing import Optional, List
 from pydantic import ValidationError
 import pandas as pd
@@ -216,6 +216,8 @@ def aws_billing_tags(
     tagValue: List,
     granularity: str = "MONTHLY",
 ) -> None:
+    """Fetches AWS billing cost data grouped by Tag and service."""
+
     # still cannot read the correct services
 
     response = boto3_client.get_cost_and_usage(
@@ -298,7 +300,6 @@ def main():
     end_date = "2024-05-01"
     tagKey = "Name"
     account_name = "Account Name"
-
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
     account = find_account(ACCOUNT_LIST, "account_name", account_name)
     if account:

@@ -6,6 +6,8 @@ This repository contains three Python functions that interact with the AWS Cost 
 - aws_billing: Fetches AWS billing cost data for a specified period, grouped by linked account, and prints a table summarizing the results.
 - aws_billing_service: Similar to aws_billing.py, but also groups the data by service within each linked account.
 
+![Diagram](./aws_billing_diagram.png)
+
 # Installation
 `python3 -m venv .vevn`
 
