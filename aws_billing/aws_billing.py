@@ -192,15 +192,15 @@ def get_cost_allocation_tags(
     start_date: str,  # format: yyyy-mm-dd
     end_date: str,
     tagKey: str,
+    account_id: str,
 ):
-
     response = boto3_client.get_tags(
         TimePeriod={"Start": start_date, "End": end_date},
         TagKey=tagKey,
         Filter={
             "Dimensions": {
                 "Key": "LINKED_ACCOUNT",
-                "Values": ["943316794729"],
+                "Values": [account_id],
             }
         },
     )
@@ -297,6 +297,7 @@ def main():
     str_date = "2024-04-01"
     end_date = "2024-05-01"
     tagKey = "Name"
+    account_id = "123456789012"
 
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
     billing_table = aws_billing(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
@@ -313,7 +314,9 @@ def main():
         filename="excel_output/billing_services.xlsx",
     )
 
-    tags = get_cost_allocation_tags(get_ce_client(), str_date, end_date, tagKey)
+    tags = get_cost_allocation_tags(
+        get_ce_client(), str_date, end_date, tagKey, account_id
+    )
     billing_table = aws_billing_tags(
         get_ce_client(), str_date, end_date, ACCOUNT_LIST, tagKey, tags
     )
