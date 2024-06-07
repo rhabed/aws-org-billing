@@ -334,7 +334,6 @@ def main(str_date, end_date, tag_billing_required, account_name, tag_key):
             billing_table = aws_billing_tags(
                 get_ce_client(), str_date, end_date, ACCOUNT_LIST, tag_key, tags
             )
-            print(billing_table)
             tabulate_to_excel(
                 data=billing_table,
                 headers=["Tag", "AWS Service", "Charges", "Currency"],
@@ -348,7 +347,6 @@ def main(str_date, end_date, tag_billing_required, account_name, tag_key):
         get_ce_client(), str_date, end_date, ACCOUNT_LIST
     )
 
-    print(billing_table)
     tabulate_to_excel(
         data=billing_table,
         headers=["Account Name", "AWS Service", "Charges", "Currency"],
