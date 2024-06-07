@@ -4,6 +4,8 @@ This repository contains Python functions that interact with the AWS Cost Manage
 
 ![Diagram](./aws_billing_diagram.png)
 
+![Diagram](./aws_billing_diagram.png)
+
 # Installation
 `python3 -m venv .vevn`
 

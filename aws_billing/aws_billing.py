@@ -318,7 +318,6 @@ def tabulate_to_excel(
 )
 @click.option("--tag_key", is_flag=False, default="Name", help="Tag Key")
 def main(str_date, end_date, tag_billing_required, account_name, tag_key):
-
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
 
     if tag_billing_required in ("True", "true"):
