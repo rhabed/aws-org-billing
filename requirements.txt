@@ -5,3 +5,4 @@ pydantic[email]
 tabulate
 openpyxl
 pandas
+click

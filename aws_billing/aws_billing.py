@@ -3,6 +3,8 @@ import os
 from pprint import pprint
 from tabulate import tabulate
 import sys
+import datetime
+import click
 
 sys.path.insert(0, "./aws_billing/objects")
 from classes import Account, find_account
@@ -12,6 +14,9 @@ import pandas as pd
 
 AWS_PROFILE = os.getenv("AWS_PROFILE")
 ACCOUNT_LIST = list()
+TODAY = datetime.date.today()
+FIRST = TODAY.replace(day=1)
+LAST_MONTH = FIRST - datetime.timedelta(days=1)
 
 
 def get_org_client(aws_profile_name=AWS_PROFILE):
@@ -191,12 +196,12 @@ def get_cost_allocation_tags(
     boto3_client: boto3.client,
     start_date: str,  # format: yyyy-mm-dd
     end_date: str,
-    tagKey: str,
+    tag_key: str,
     account_id: str,
 ):
     response = boto3_client.get_tags(
         TimePeriod={"Start": start_date, "End": end_date},
-        TagKey=tagKey,
+        TagKey=tag_key,
         Filter={
             "Dimensions": {
                 "Key": "LINKED_ACCOUNT",
@@ -212,7 +217,7 @@ def aws_billing_tags(
     start_date: str,
     end_date: str,
     account_list: List,
-    tagKey: str,
+    tag_key: str,
     tagValue: List,
     granularity: str = "MONTHLY",
 ) -> None:
@@ -225,7 +230,7 @@ def aws_billing_tags(
         Granularity=granularity,
         Metrics=["UnblendedCost"],
         GroupBy=[
-            {"Type": "TAG", "Key": tagKey},
+            {"Type": "TAG", "Key": tag_key},
             {"Type": "DIMENSION", "Key": "SERVICE"},  # Service grouping
         ],
         Filter={
@@ -245,7 +250,7 @@ def aws_billing_tags(
                 },
                 {
                     "Tags": {
-                        "Key": tagKey,
+                        "Key": tag_key,
                         "Values": tagValue,
                     },
                 },
@@ -294,43 +299,58 @@ def tabulate_to_excel(
     df.to_excel(filename, sheet_name=sheet_name, index=index)
 
 
-def main():
-
-    str_date = "2024-04-01"
-    end_date = "2024-05-01"
-    tagKey = "Name"
-    account_name = "Account Name"
+@click.command()
+@click.option(
+    "--str_date",
+    is_flag=False,
+    default=LAST_MONTH.strftime(f"%Y-%m-01"),
+    help="Reports Start Date",
+)
+@click.option("--end_date", is_flag=False, default=FIRST, help="Reports End Date")
+@click.option(
+    "--tag_billing_required",
+    is_flag=False,
+    default="False",
+    help="Is Tag Billing Required? (True|False)",
+)
+@click.option(
+    "--account_name", is_flag=False, default="", help="Account Name for Tag Billing"
+)
+@click.option("--tag_key", is_flag=False, default="Name", help="Tag Key")
+def main(str_date, end_date, tag_billing_required, account_name, tag_key):
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
-    account = find_account(ACCOUNT_LIST, "account_name", account_name)
-    if account:
-        account_id = account.account_id
-        print(f"account_id: {account_id}")
 
-    billing_table = aws_billing(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
-    # Create DataFrame using tabulate with headers="firstrow"
+    if tag_billing_required in ("True", "true"):
+        account = find_account(ACCOUNT_LIST, "account_name", account_name)
+        account_name = "".join(account_name).replace(" ", "_").lower()
+        account_id = None
+        if account:
+            account_id = account.account_id
+            print(f"account_id: {account_id}")
+        if account_id:
+            tags = get_cost_allocation_tags(
+                get_ce_client(), str_date, end_date, tag_key, account_id
+            )
+            billing_table = aws_billing_tags(
+                get_ce_client(), str_date, end_date, ACCOUNT_LIST, tag_key, tags
+            )
+            tabulate_to_excel(
+                data=billing_table,
+                headers=["Tag", "AWS Service", "Charges", "Currency"],
+                filename=f"excel_output/{end_date}_{account_name}_billing_tags_by_{tag_key}.xlsx",
+            )
+        else:
+            print(f"No account_id found for specified account {account_name}")
+
+    aws_billing(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
+    billing_table = aws_billing_service(
+        get_ce_client(), str_date, end_date, ACCOUNT_LIST
+    )
+
     tabulate_to_excel(
         data=billing_table,
         headers=["Account Name", "AWS Service", "Charges", "Currency"],
-        filename="excel_output/billing.xlsx",
-    )
-    print(billing_table)
-    tabulate_to_excel(
-        data=billing_table,
-        headers=["Account Name", "AWS Service", "Charges", "Currency"],
-        filename=f"excel_output/billing_services.xlsx_{end_date}",
-    )
-
-    tags = get_cost_allocation_tags(
-        get_ce_client(), str_date, end_date, tagKey, account_id
-    )
-    billing_table = aws_billing_tags(
-        get_ce_client(), str_date, end_date, ACCOUNT_LIST, tagKey, tags
-    )
-    print(billing_table)
-    tabulate_to_excel(
-        data=billing_table,
-        headers=["Tag", "AWS Service", "Charges", "Currency"],
-        filename=f"excel_output/billing_tags_by{tagKey}_{end_date}.xlsx",
+        filename=f"excel_output/{end_date}_billing_services.xlsx",
     )
 
 
