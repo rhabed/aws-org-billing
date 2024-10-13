@@ -1,0 +1,27 @@
+{
+  "TableName": "kloudrAWSBillingInfo",
+  "AttributeDefinitions": [
+    {
+      "AttributeName": "aws_account_id",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "aws_service",
+      "AttributeType": "S"
+    }
+  ],
+  "KeySchema": [
+    {
+      "AttributeName": "aws_account_id",
+      "KeyType": "HASH"
+    },
+    {
+      "AttributeName":"aws_service",
+      "KeyType": "RANGE"
+    }
+  ],
+  "ProvisionedThroughput": {
+    "ReadCapacityUnits": 5,
+    "WriteCapacityUnits": 5
+  }
+}

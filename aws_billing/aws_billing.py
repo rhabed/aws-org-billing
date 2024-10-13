@@ -5,9 +5,10 @@ from tabulate import tabulate
 import sys
 import datetime
 import click
+from localdb.utils.classes import BillingItem
+from localdb.utils.functionality import insert_in_db
 
-sys.path.insert(0, "./aws_billing/objects")
-from classes import Account, find_account
+from objects.classes import Account, find_account
 from typing import Optional, List
 from pydantic import ValidationError
 import pandas as pd
@@ -140,7 +141,7 @@ def aws_billing_service(
             "Not": {
                 "Dimensions": {
                     "Key": "RECORD_TYPE",
-                    "Values": ["Tax", "Credit", "Refund", "Distributor Discount"],
+                    "Values": ["Credit", "Refund", "Distributor Discount"],
                 }
             },
         },
@@ -165,29 +166,62 @@ def aws_billing(
 ) -> None:
     """Fetches AWS billing cost data grouped by linked account and service."""
 
-    response = boto3_client.get_cost_and_usage(
-        TimePeriod={"Start": start_date, "End": end_date},
-        Granularity=granularity,
-        Metrics=["UnblendedCost"],
-        GroupBy=[
-            {"Type": "DIMENSION", "Key": "LINKED_ACCOUNT"},
-        ],
-        Filter={
-            "Not": {
-                "Dimensions": {
-                    "Key": "RECORD_TYPE",
-                    "Values": ["Tax", "Credit", "Refund", "Distributor Discount"],
-                }
+    # response = boto3_client.get_cost_and_usage(
+    #     TimePeriod={"Start": start_date, "End": end_date},
+    #     Granularity=granularity,
+    #     Metrics=["UnblendedCost"],
+    #     GroupBy=[
+    #         {"Type": "DIMENSION", "Key": "LINKED_ACCOUNT"},
+    #     ],
+    #     Filter={
+    #         "Not": {
+    #             "Dimensions": {
+    #                 "Key": "RECORD_TYPE",
+    #                 "Values": ["Credit", "Refund", "Distributor Discount"],
+    #             }
+    #         },
+    #     },
+    # )
+
+
+    for account in account_list:
+        response = boto3_client.get_cost_and_usage(
+            TimePeriod={"Start": start_date, "End": end_date},
+            Granularity=granularity,
+            Metrics=["UnblendedCost"],
+            GroupBy=[
+                {"Type": "DIMENSION", "Key": "SERVICE"},  # Serice grouping
+                {"Type": "DIMENSION", "Key": "USAGE_TYPE"},
+            ],
+            Filter={
+                "And": [{
+                "Not": {
+                    "Dimensions": {
+                        "Key": "RECORD_TYPE",
+                        "Values": ["Credit", "Refund", "Distributor Discount"],
+                    }
+                }},
+                {
+                    "Dimensions": {
+                        "Key": "LINKED_ACCOUNT",
+                        "Values": [account.account_id],
+                    }
+                }]
             },
-        },
-    )
+        )
 
-    table = process_billing_results(
-        response.get("ResultsByTime", [])[0].get("Groups", []), account_list
-    )
+        print(account.account_name)
+        table = process_billing_results(
+            response.get("ResultsByTime", [])[0].get("Groups", []), account_list
+        )
 
-    if table:
-        print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
+        if table:
+            print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
+        tabulate_to_excel(
+            data=table,
+            headers=["AWS Service", "Usage Type", "Charges", "Currency"],
+            filename=f"excel_output/{end_date}_{account.account_name}_billing_details.xlsx",
+   )
 
     return table
 
@@ -240,7 +274,6 @@ def aws_billing_tags(
                         "Dimensions": {
                             "Key": "RECORD_TYPE",
                             "Values": [
-                                "Tax",
                                 "Credit",
                                 "Refund",
                                 "Distributor Discount",
@@ -321,28 +354,32 @@ def main(str_date, end_date, tag_billing_required, account_name, tag_key):
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
 
     if tag_billing_required in ("True", "true"):
-        account = find_account(ACCOUNT_LIST, "account_name", account_name)
-        account_name = "".join(account_name).replace(" ", "_").lower()
-        account_id = None
-        if account:
+        for account in ACCOUNT_LIST:
             account_id = account.account_id
-            print(f"account_id: {account_id}")
-        if account_id:
-            tags = get_cost_allocation_tags(
-                get_ce_client(), str_date, end_date, tag_key, account_id
-            )
-            billing_table = aws_billing_tags(
-                get_ce_client(), str_date, end_date, ACCOUNT_LIST, tag_key, tags
-            )
-            tabulate_to_excel(
-                data=billing_table,
-                headers=["Tag", "AWS Service", "Charges", "Currency"],
-                filename=f"excel_output/{end_date}_{account_name}_billing_tags_by_{tag_key}.xlsx",
-            )
-        else:
-            print(f"No account_id found for specified account {account_name}")
-
+            account_name = account.account_name
+            if account_name in ["AWS Connect", "AWS CSS Providers", "AWS CSS Freighters", "AWS Bentham Science"]:
+                tags = get_cost_allocation_tags(
+                    get_ce_client(), str_date, end_date, tag_key, account_id
+                )
+                print(tags)
+                if tags == []:
+                    continue
+                tags.remove('')
+                billing_table = aws_billing_tags(
+                    get_ce_client(), str_date, end_date, ACCOUNT_LIST, tag_key, tags
+                )
+                tabulate_to_excel(
+                    data=billing_table,
+                    headers=["Tag", "AWS Service", "Charges", "Currency"],
+                    filename=f"excel_output/{end_date}_{account_name}_billing_tags_by_{tag_key}.xlsx",
+                )
+            else:
+                print(f"No tags billing required for {account_name}")
+    
+    # Default - without tagging
     aws_billing(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
+
+
     billing_table = aws_billing_service(
         get_ce_client(), str_date, end_date, ACCOUNT_LIST
     )
