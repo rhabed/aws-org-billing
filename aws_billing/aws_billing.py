@@ -5,10 +5,11 @@ from tabulate import tabulate
 import sys
 import datetime
 import click
-from localdb.utils.classes import BillingItem
-from localdb.utils.functionality import insert_in_db
+import decimal
 
-from objects.classes import Account, find_account
+sys.path.insert(0, "./aws_billing/objects")
+from utils import insert_in_db
+from classes import BillingItem, Account, find_account
 from typing import Optional, List
 from pydantic import ValidationError
 import pandas as pd
@@ -21,21 +22,37 @@ LAST_MONTH = FIRST - datetime.timedelta(days=1)
 
 
 def get_org_client(aws_profile_name=AWS_PROFILE):
+    """
+    Returns a boto3 client for AWS Organizations service.
+
+    Args:
+        aws_profile_name: The name of the AWS profile to use.
+
+    Returns:
+        A boto3 client for AWS Organizations service.
+    """
     session = boto3.Session(profile_name=aws_profile_name)
     client = session.client("organizations")
     return client
 
 
 def get_ce_client(aws_profile_name=AWS_PROFILE):
+    """
+    Returns a boto3 client for AWS Cost Explorer service.
+
+    Args:
+        aws_profile_name: The name of the AWS profile to use.
+
+    Returns:
+        A boto3 client for AWS Cost Explorer service.
+    """
     session = boto3.Session(profile_name=aws_profile_name)
     client = session.client("ce")
     return client
 
 
 def close_account_from_org(boto3_client, account_id):
-    user_confirmation = input(
-        f"Are you sure closing AWS account {account_id} (yes/No): "
-    )
+    user_confirmation = input(f"Are you sure closing AWS account {account_id} (yes/No): ")
     if user_confirmation == "yes":
         client = boto3_client
         res = client.close_account(AccountId=account_id)
@@ -70,22 +87,21 @@ def get_list_of_accounts(boto3_client: boto3.client) -> List[Account]:
                 }
                 account_list.append(Account(**account_data))
             except ValidationError as e:
-                print(
-                    f"Error creating Account object: {e.errors()}"
-                )  # Informative error message
+                print(f"Error creating Account object: {e.errors()}")  # Informative error message
 
     # Print table only if there are accounts (avoid empty table output)
     if account_list:
         table = [["Account ID", "Root Email", "Account Name", "Account Status"]]
         table.extend(
-            [
-                [acc.account_id, acc.root_email, acc.account_name, acc.status]
-                for acc in account_list
-            ]
+            [[acc.account_id, acc.root_email, acc.account_name, acc.status] for acc in account_list]
         )
         # print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
 
     return account_list
+
+
+def return_billing_object(item: list):
+    return BillingItem(**item)
 
 
 def process_billing_results(groups, account_list) -> list:
@@ -111,11 +127,10 @@ def process_billing_results(groups, account_list) -> list:
         service = (
             group.get("Keys", [])[1] if len(group.get("Keys")) > 1 else "Total"
         )  # Handle optional service
-        amount = round(
-            float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 2
-        )
+        amount = round(float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 2)
         unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
         if amount != 0:
+
             table.append([name, service, amount, unit])
     return table
 
@@ -183,7 +198,6 @@ def aws_billing(
     #     },
     # )
 
-
     for account in account_list:
         response = boto3_client.get_cost_and_usage(
             TimePeriod={"Start": start_date, "End": end_date},
@@ -194,19 +208,22 @@ def aws_billing(
                 {"Type": "DIMENSION", "Key": "USAGE_TYPE"},
             ],
             Filter={
-                "And": [{
-                "Not": {
-                    "Dimensions": {
-                        "Key": "RECORD_TYPE",
-                        "Values": ["Credit", "Refund", "Distributor Discount"],
-                    }
-                }},
-                {
-                    "Dimensions": {
-                        "Key": "LINKED_ACCOUNT",
-                        "Values": [account.account_id],
-                    }
-                }]
+                "And": [
+                    {
+                        "Not": {
+                            "Dimensions": {
+                                "Key": "RECORD_TYPE",
+                                "Values": ["Credit", "Refund", "Distributor Discount"],
+                            }
+                        }
+                    },
+                    {
+                        "Dimensions": {
+                            "Key": "LINKED_ACCOUNT",
+                            "Values": [account.account_id],
+                        }
+                    },
+                ]
             },
         )
 
@@ -214,16 +231,35 @@ def aws_billing(
         table = process_billing_results(
             response.get("ResultsByTime", [])[0].get("Groups", []), account_list
         )
-
         if table:
             print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
+
         tabulate_to_excel(
             data=table,
             headers=["AWS Service", "Usage Type", "Charges", "Currency"],
             filename=f"excel_output/{end_date}_{account.account_name}_billing_details.xlsx",
-   )
+        )
 
     return table
+
+
+def add_cost_to_dynamodb(table: list, startdate: str, enddate: str):
+    for item in table:
+        account_name = item[0]
+        aws_service = item[1]
+        cost = decimal.Decimal(str(item[2]))
+
+        start_date = startdate
+        end_date = enddate
+        # breakpoint()
+        billing_item = BillingItem(
+            aws_account_name=account_name,
+            aws_service=aws_service,
+            cost=cost,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        insert_in_db(billing_item, "kloudrAWSBillingInfo")
 
 
 def get_cost_allocation_tags(
@@ -326,10 +362,10 @@ def tabulate_to_excel(
         df = pd.DataFrame(
             data, columns=headers
         )  # tabulate(data, headers=headers, tablefmt="plain"))
+        # Export DataFrame to Excel
+        df.to_excel(filename, sheet_name=sheet_name, index=index)
     except ValueError as e:
         print("Error:", e)
-    # Export DataFrame to Excel
-    df.to_excel(filename, sheet_name=sheet_name, index=index)
 
 
 @click.command()
@@ -346,9 +382,7 @@ def tabulate_to_excel(
     default="False",
     help="Is Tag Billing Required? (True|False)",
 )
-@click.option(
-    "--account_name", is_flag=False, default="", help="Account Name for Tag Billing"
-)
+@click.option("--account_name", is_flag=False, default="", help="Account Name for Tag Billing")
 @click.option("--tag_key", is_flag=False, default="Name", help="Tag Key")
 def main(str_date, end_date, tag_billing_required, account_name, tag_key):
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
@@ -357,17 +391,23 @@ def main(str_date, end_date, tag_billing_required, account_name, tag_key):
         for account in ACCOUNT_LIST:
             account_id = account.account_id
             account_name = account.account_name
-            if account_name in ["AWS Connect", "AWS CSS Providers", "AWS CSS Freighters", "AWS Bentham Science"]:
+            if account_name in [
+                "AWS Connect",
+                "AWS CSS Providers",
+                "AWS CSS Freighters",
+                "AWS Bentham Science",
+            ]:
                 tags = get_cost_allocation_tags(
                     get_ce_client(), str_date, end_date, tag_key, account_id
                 )
                 print(tags)
                 if tags == []:
                     continue
-                tags.remove('')
+                tags.remove("")
                 billing_table = aws_billing_tags(
                     get_ce_client(), str_date, end_date, ACCOUNT_LIST, tag_key, tags
                 )
+
                 tabulate_to_excel(
                     data=billing_table,
                     headers=["Tag", "AWS Service", "Charges", "Currency"],
@@ -375,15 +415,12 @@ def main(str_date, end_date, tag_billing_required, account_name, tag_key):
                 )
             else:
                 print(f"No tags billing required for {account_name}")
-    
+
     # Default - without tagging
-    aws_billing(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
+    # aws_billing(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
 
-
-    billing_table = aws_billing_service(
-        get_ce_client(), str_date, end_date, ACCOUNT_LIST
-    )
-
+    billing_table = aws_billing_service(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
+    add_cost_to_dynamodb(billing_table, str_date, end_date)
     tabulate_to_excel(
         data=billing_table,
         headers=["Account Name", "AWS Service", "Charges", "Currency"],

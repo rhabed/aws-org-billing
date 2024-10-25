@@ -2,7 +2,7 @@
   "TableName": "kloudrAWSBillingInfo",
   "AttributeDefinitions": [
     {
-      "AttributeName": "aws_account_id",
+      "AttributeName": "aws_account_name",
       "AttributeType": "S"
     },
     {
@@ -12,7 +12,7 @@
   ],
   "KeySchema": [
     {
-      "AttributeName": "aws_account_id",
+      "AttributeName": "aws_account_name",
       "KeyType": "HASH"
     },
     {
