@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Total Cost Data</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <h1>Total Cost Data</h1>
+    <form action="/total_cost_per_account" method="post">
+      <input type="text" name="aws_account_filter" placeholder="Total by AWS Account">
+      <button type="submit">Total</button>
+      </form>    
+    <table>
+      <tr>
+        <th>AWS Account</th>
+        <th>Total Cost)$)</th>
+        <th>Start Date</th>
+        <th>End Date</th>
+        <!-- Add more columns as needed -->
+      </tr>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.aws_account_name }}</td>
+        <td>{{ item.total_cost }}</td>
+        <td>{{ item.start_date }}</td>
+        <td>{{ item.end_date }}</td>
+        <!-- Add more columns as needed -->
+      </tr>
+      {% endfor %}
+    </table>
+  </body>
+</html>
