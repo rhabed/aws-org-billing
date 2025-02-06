@@ -10,6 +10,7 @@ sys.path.insert(0, "./aws_billing/objects")
 from classes import Account, find_account
 from typing import Optional, List
 from pydantic import ValidationError
+from collections import defaultdict
 import pandas as pd
 
 AWS_PROFILE = os.getenv("AWS_PROFILE")
@@ -17,6 +18,64 @@ ACCOUNT_LIST = list()
 TODAY = datetime.date.today()
 FIRST = TODAY.replace(day=1)
 LAST_MONTH = FIRST - datetime.timedelta(days=1)
+
+
+# helper function
+def check_elements_not_in_string(my_list, my_string):
+    """
+    Checks if each element of a list is NOT present in a given string.
+
+    Args:
+        my_list: The list of elements to check.
+        my_string: The string to check against.
+
+    Returns:
+        True if ALL elements of the list are NOT in the string, False otherwise.
+    """
+    if my_list is None:
+        return True
+    if my_list is None:
+        return True
+    for element in my_list:
+        if element in my_string:  # Or if str(element) in my_string for mixed types
+            return False  # If even ONE element is found, return False immediately
+    return True  # If the loop completes without finding any element, return True
+
+
+def sum_by_group(data):
+    """Sums values associated with keys in a list of tuples/lists.
+
+    Args:
+        data: A list of tuples or lists, where the first element of each
+              inner sequence is the key, and the second element is a value
+              (that can be converted to an int) to be summed.
+
+    Returns:
+        A list of dictionaries, where each dictionary represents a group
+        and contains the group's name and the sum of its values.  Returns
+        an empty list if the input data is invalid.
+    """
+
+    if not isinstance(data, list):
+        return []  # Input must be a list
+
+    grouped_sums = defaultdict(float)
+
+    for item in data:
+        if not isinstance(item, (list, tuple)) or len(item) < 2:
+            return []  # Inner items must be lists or tuples of length >= 2
+
+        try:
+            key = item[0]
+            value = float(item[1])  # Attempt conversion to int
+            grouped_sums[key] += value
+        except (ValueError, TypeError):
+            return []  # Return empty list if value is not a valid int
+
+    result = []
+    for key, total in grouped_sums.items():
+        result.append((key, total))
+    return result
 
 
 def get_org_client(aws_profile_name=AWS_PROFILE):
@@ -105,8 +164,45 @@ def process_billing_results(groups, account_list) -> list:
         )  # Handle optional service
         amount = round(float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 3)
         unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
-        if amount != 0 and ("AWS-Out-Bytes" not in service and "DataTransfer" not in service):
+        if amount != 0 and check_elements_not_in_string(["AWS-Out-Bytes", "DataTransfer"], service):
             table.append([name, service, amount, unit])
+    return table
+
+
+def process_billing_results_tags(groups, account_list) -> list:
+    """Processes billing results groups and creates table data.
+
+    Args:
+        groups: A list of billing results groups.
+        account_list: A list of account objects for name lookup.
+
+    Returns:
+        A list of lists representing the table data.
+    """
+    sum = 0
+    empty_list = []
+    table = []
+    for group in groups:
+        name = accountid = group.get("Keys")[0]
+        account = find_account(account_list, "account_id", accountid)
+        if account:
+            name = getattr(account, "account_name")
+        if name.startswith("Name$"):
+            name = name[5:]
+
+        usage = (
+            group.get("Keys", [])[1] if len(group.get("Keys")) > 1 else "Total"
+        )  # Handle optional service
+        amount = round(float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 3)
+        unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
+        if amount != 0 and check_elements_not_in_string(["AWS-Out-Bytes", "DataTransfer"], usage):
+            table.append(["Amazon Compute Cloud", name, usage, amount, unit])
+        else:
+            empty_list.append((name, amount))
+            print(empty_list)
+    result = sum_by_group(empty_list)
+    for item in result:
+        table.append(["AWS Data Transfer", item[0], "", item[1], unit])
     return table
 
 
@@ -265,7 +361,7 @@ def aws_billing_tags(
     return table
 
 
-def aws_billing_tags2(
+def aws_billing_ec2_volume_snapshots(
     boto3_client: boto3.client,
     start_date: str,
     end_date: str,
@@ -324,8 +420,8 @@ def aws_billing_tags2(
             ]
         },
     )
-    print(response)
-    table = process_billing_results(
+
+    table = process_billing_results_tags(
         response.get("ResultsByTime", [])[0].get("Groups", []), account_list
     )
 
@@ -382,7 +478,8 @@ def tabulate_to_excel(
 )
 @click.option("--account_name", is_flag=False, default="", help="Account Name for Tag Billing")
 @click.option("--tag_key", is_flag=False, default="Name", help="Tag Key")
-def main(str_date, end_date, tag_billing_required, account_name, tag_key):
+@click.option("--entity", is_flag=False, default="offshore", help="Enity Name")
+def main(str_date, end_date, tag_billing_required, account_name, tag_key, entity):
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
 
     if tag_billing_required in ("True", "true"):
@@ -396,12 +493,12 @@ def main(str_date, end_date, tag_billing_required, account_name, tag_key):
             tags = get_cost_allocation_tags(
                 get_ce_client(), str_date, end_date, tag_key, account_id
             )
-            billing_table = aws_billing_tags2(
+            billing_table = aws_billing_ec2_volume_snapshots(
                 get_ce_client(), str_date, end_date, ACCOUNT_LIST, account_id, tag_key, tags
             )
             tabulate_to_excel(
                 data=billing_table,
-                headers=["Tag", "Usage Type", "Charges", "Currency"],
+                headers=["Service", "Tag", "Usage Type", "Charges", "Currency"],
                 filename=f"excel_output/{end_date}_{account_name}_billing_tags_by_{tag_key}.xlsx",
             )
         else:
@@ -413,7 +510,7 @@ def main(str_date, end_date, tag_billing_required, account_name, tag_key):
         tabulate_to_excel(
             data=billing_table,
             headers=["Account Name", "AWS Service", "Charges", "Currency"],
-            filename=f"excel_output/{end_date}_billing_services.xlsx",
+            filename=f"excel_output/{end_date}_billing_services_{entity}.xlsx",
         )
 
 
