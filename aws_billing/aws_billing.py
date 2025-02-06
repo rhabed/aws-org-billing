@@ -308,7 +308,7 @@ def aws_billing_tags2(
                         "Key": "SERVICE",
                         "Values": ["EC2 - Other", "Amazon Elastic Compute Cloud - Compute"],
                     },
-                },                
+                },
                 {
                     "Tags": {
                         "Key": tag_key,
