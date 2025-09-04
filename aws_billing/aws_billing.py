@@ -196,9 +196,13 @@ def process_billing_results_tags(groups, account_list, **kwargs) -> list:
             usage = (
                 group.get("Keys", [])[1] if len(group.get("Keys")) > 1 else "Total"
             )  # Handle optional service
-            amount = round(float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 3)
+            amount = round(
+                float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 3
+            )
             unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
-            if amount != 0 and check_elements_not_in_string(["AWS-Out-Bytes", "DataTransfer"], usage):
+            if amount != 0 and check_elements_not_in_string(
+                ["AWS-Out-Bytes", "DataTransfer"], usage
+            ):
                 table.append(["Amazon Compute Cloud", name, usage, amount, unit])
             else:
                 empty_list.append((name, amount))
@@ -208,9 +212,13 @@ def process_billing_results_tags(groups, account_list, **kwargs) -> list:
                     usage = (
                         group.get("Keys", [])[1] if len(group.get("Keys")) > 1 else "Total"
                     )  # Handle optional service
-                    amount = round(float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 3)
+                    amount = round(
+                        float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 3
+                    )
                     unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
-                    if amount != 0 and check_elements_not_in_string(["AWS-Out-Bytes", "DataTransfer"], usage):
+                    if amount != 0 and check_elements_not_in_string(
+                        ["AWS-Out-Bytes", "DataTransfer"], usage
+                    ):
                         table.append(["Amazon Compute Cloud", name, usage, amount, unit])
                     else:
                         empty_list.append((name, amount))
@@ -219,9 +227,13 @@ def process_billing_results_tags(groups, account_list, **kwargs) -> list:
                     usage = (
                         group.get("Keys", [])[1] if len(group.get("Keys")) > 1 else "Total"
                     )  # Handle optional service
-                    amount = round(float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 3)
+                    amount = round(
+                        float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 3
+                    )
                     unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
-                    if amount != 0 and check_elements_not_in_string(["AWS-Out-Bytes", "DataTransfer"], usage):
+                    if amount != 0 and check_elements_not_in_string(
+                        ["AWS-Out-Bytes", "DataTransfer"], usage
+                    ):
                         table.append(["Amazon Compute Cloud", name, usage, amount, unit])
                     else:
                         empty_list.append((name, amount))
@@ -312,7 +324,7 @@ def get_cost_allocation_tags(
     tag_key: str,
     account_id: str,
 ):
-    
+
     response = boto3_client.get_tags(
         TimePeriod={"Start": start_date, "End": end_date},
         TagKey=tag_key,
@@ -446,15 +458,18 @@ def aws_billing_ec2_volume_snapshots(
                 },
             ]
         },
-    )       
+    )
     if account_id == "943316794729":
         btsc = kwargs.get("btsc")
         table = process_billing_results_tags(
-            response.get("ResultsByTime", [])[0].get("Groups", []), account_list, btsc = btsc,
+            response.get("ResultsByTime", [])[0].get("Groups", []),
+            account_list,
+            btsc=btsc,
         )
     else:
         table = process_billing_results_tags(
-            response.get("ResultsByTime", [])[0].get("Groups", []), account_list,
+            response.get("ResultsByTime", [])[0].get("Groups", []),
+            account_list,
         )
     if table:
         print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
@@ -511,7 +526,6 @@ def tabulate_to_excel(
 @click.option("--tag_key", is_flag=False, default="Name", help="Tag Key")
 @click.option("--entity", is_flag=False, default="offshore", help="Entity Name")
 @click.option("--btsc", is_flag=False, default="", help="Personal or Bentham")
-
 def main(str_date, end_date, tag_billing_required, account_name, tag_key, entity, btsc):
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
 
@@ -529,7 +543,14 @@ def main(str_date, end_date, tag_billing_required, account_name, tag_key, entity
             print(btsc)
             if btsc:
                 billing_table = aws_billing_ec2_volume_snapshots(
-                    get_ce_client(), str_date, end_date, ACCOUNT_LIST, account_id, tag_key, tags, btsc=btsc
+                    get_ce_client(),
+                    str_date,
+                    end_date,
+                    ACCOUNT_LIST,
+                    account_id,
+                    tag_key,
+                    tags,
+                    btsc=btsc,
                 )
                 account_name = f"{account_name}-{btsc}"
             else:
