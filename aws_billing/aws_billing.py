@@ -10,6 +10,7 @@ sys.path.insert(0, "./aws_billing/objects")
 from classes import Account, find_account
 from typing import Optional, List
 from pydantic import ValidationError
+from collections import defaultdict
 import pandas as pd
 
 AWS_PROFILE = os.getenv("AWS_PROFILE")
@@ -17,6 +18,64 @@ ACCOUNT_LIST = list()
 TODAY = datetime.date.today()
 FIRST = TODAY.replace(day=1)
 LAST_MONTH = FIRST - datetime.timedelta(days=1)
+
+
+# helper function
+def check_elements_not_in_string(my_list, my_string):
+    """
+    Checks if each element of a list is NOT present in a given string.
+
+    Args:
+        my_list: The list of elements to check.
+        my_string: The string to check against.
+
+    Returns:
+        True if ALL elements of the list are NOT in the string, False otherwise.
+    """
+    if my_list is None:
+        return True
+    if my_list is None:
+        return True
+    for element in my_list:
+        if element in my_string:  # Or if str(element) in my_string for mixed types
+            return False  # If even ONE element is found, return False immediately
+    return True  # If the loop completes without finding any element, return True
+
+
+def sum_by_group(data):
+    """Sums values associated with keys in a list of tuples/lists.
+
+    Args:
+        data: A list of tuples or lists, where the first element of each
+              inner sequence is the key, and the second element is a value
+              (that can be converted to an int) to be summed.
+
+    Returns:
+        A list of dictionaries, where each dictionary represents a group
+        and contains the group's name and the sum of its values.  Returns
+        an empty list if the input data is invalid.
+    """
+
+    if not isinstance(data, list):
+        return []  # Input must be a list
+
+    grouped_sums = defaultdict(float)
+
+    for item in data:
+        if not isinstance(item, (list, tuple)) or len(item) < 2:
+            return []  # Inner items must be lists or tuples of length >= 2
+
+        try:
+            key = item[0]
+            value = float(item[1])  # Attempt conversion to int
+            grouped_sums[key] += value
+        except (ValueError, TypeError):
+            return []  # Return empty list if value is not a valid int
+
+    result = []
+    for key, total in grouped_sums.items():
+        result.append((key, total))
+    return result
 
 
 def get_org_client(aws_profile_name=AWS_PROFILE):
@@ -82,7 +141,7 @@ def get_list_of_accounts(boto3_client: boto3.client) -> List[Account]:
                 for acc in account_list
             ]
         )
-        # print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
+        print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
 
     return account_list
 
@@ -111,11 +170,107 @@ def process_billing_results(groups, account_list) -> list:
             group.get("Keys", [])[1] if len(group.get("Keys")) > 1 else "Total"
         )  # Handle optional service
         amount = round(
-            float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 2
+            float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)), 3
         )
         unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
-        if amount != 0:
+        if amount != 0 and check_elements_not_in_string(
+            ["AWS-Out-Bytes", "DataTransfer"], service
+        ):
             table.append([name, service, amount, unit])
+    return table
+
+
+def process_billing_results_tags(groups, account_list, **kwargs) -> list:
+    """Processes billing results groups and creates table data.
+
+    Args:
+        groups: A list of billing results groups.
+        account_list: A list of account objects for name lookup.
+
+    Returns:
+        A list of lists representing the table data.
+    """
+    sum = 0
+    empty_list = []
+    btsc = None
+    if kwargs:
+        btsc = kwargs.get("btsc")
+    table = []
+    for group in groups:
+        name = accountid = group.get("Keys")[0]
+        account = find_account(account_list, "account_id", accountid)
+        if account:
+            name = getattr(account, "account_name")
+        if name.startswith("Name$"):
+            name = name[5:]
+        if btsc is None:
+            usage = (
+                group.get("Keys", [])[1] if len(group.get("Keys")) > 1 else "Total"
+            )  # Handle optional service
+            amount = round(
+                float(group.get("Metrics").get("UnblendedCost", {}).get("Amount", 0.0)),
+                3,
+            )
+            unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
+            if amount != 0 and check_elements_not_in_string(
+                ["AWS-Out-Bytes", "DataTransfer"], usage
+            ):
+                table.append(["Amazon Compute Cloud", name, usage, amount, unit])
+            else:
+                empty_list.append((name, amount))
+        else:
+            if btsc == "personal":
+                if name in ["LN-BTSC-WEB1", "LN-BTSC-WEB2"]:
+                    usage = (
+                        group.get("Keys", [])[1]
+                        if len(group.get("Keys")) > 1
+                        else "Total"
+                    )  # Handle optional service
+                    amount = round(
+                        float(
+                            group.get("Metrics")
+                            .get("UnblendedCost", {})
+                            .get("Amount", 0.0)
+                        ),
+                        3,
+                    )
+                    unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
+                    if amount != 0 and check_elements_not_in_string(
+                        ["AWS-Out-Bytes", "DataTransfer"], usage
+                    ):
+                        table.append(
+                            ["Amazon Compute Cloud", name, usage, amount, unit]
+                        )
+                    else:
+                        empty_list.append((name, amount))
+            if btsc == "btsc":
+                if name not in ["LN-BTSC-WEB1", "LN-BTSC-WEB2"]:
+                    usage = (
+                        group.get("Keys", [])[1]
+                        if len(group.get("Keys")) > 1
+                        else "Total"
+                    )  # Handle optional service
+                    amount = round(
+                        float(
+                            group.get("Metrics")
+                            .get("UnblendedCost", {})
+                            .get("Amount", 0.0)
+                        ),
+                        3,
+                    )
+                    unit = group.get("Metrics").get("UnblendedCost", {}).get("Unit", "")
+                    if amount != 0 and check_elements_not_in_string(
+                        ["AWS-Out-Bytes", "DataTransfer"], usage
+                    ):
+                        table.append(
+                            ["Amazon Compute Cloud", name, usage, amount, unit]
+                        )
+                    else:
+                        empty_list.append((name, amount))
+
+    result = sum_by_group(empty_list)
+    for item in result:
+        table.append(["AWS Data Transfer", item[0], "", item[1], unit])
     return table
 
 
@@ -199,6 +354,7 @@ def get_cost_allocation_tags(
     tag_key: str,
     account_id: str,
 ):
+
     response = boto3_client.get_tags(
         TimePeriod={"Start": start_date, "End": end_date},
         TagKey=tag_key,
@@ -217,10 +373,11 @@ def aws_billing_tags(
     start_date: str,
     end_date: str,
     account_list: List,
+    account_id: str,
     tag_key: str,
     tagValue: List,
     granularity: str = "MONTHLY",
-) -> None:
+):
     """Fetches AWS billing cost data grouped by Tag and service."""
 
     # still cannot read the correct services
@@ -254,14 +411,99 @@ def aws_billing_tags(
                         "Values": tagValue,
                     },
                 },
+                {
+                    "Dimensions": {
+                        "Key": "LINKED_ACCOUNT",
+                        "Values": [account_id],
+                    },
+                },
             ]
         },
     )
-    print(response)
     table = process_billing_results(
         response.get("ResultsByTime", [])[0].get("Groups", []), account_list
     )
 
+    if table:
+        print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
+
+    return table
+
+
+def aws_billing_ec2_volume_snapshots(
+    boto3_client: boto3.client,
+    start_date: str,
+    end_date: str,
+    account_list: List,
+    account_id: str,
+    tag_key: str,
+    tagValue: List,
+    granularity: str = "MONTHLY",
+    **kwargs,
+):
+    """Fetches AWS billing cost data grouped by Tag and service."""
+
+    # still cannot read the correct services
+    response = boto3_client.get_cost_and_usage(
+        TimePeriod={"Start": start_date, "End": end_date},
+        Granularity=granularity,
+        Metrics=["UnblendedCost"],
+        GroupBy=[
+            {"Type": "TAG", "Key": tag_key},
+            # {"Type": "DIMENSION", "Key": "SERVICE"},
+            {"Type": "DIMENSION", "Key": "USAGE_TYPE"},
+        ],
+        Filter={
+            "And": [
+                {
+                    "Not": {
+                        "Dimensions": {
+                            "Key": "RECORD_TYPE",
+                            "Values": [
+                                "Tax",
+                                "Credit",
+                                "Refund",
+                                "Distributor Discount",
+                            ],
+                        }
+                    }
+                },
+                {
+                    "Dimensions": {
+                        "Key": "SERVICE",
+                        "Values": [
+                            "EC2 - Other",
+                            "Amazon Elastic Compute Cloud - Compute",
+                        ],
+                    },
+                },
+                {
+                    "Tags": {
+                        "Key": tag_key,
+                        "Values": tagValue,
+                    },
+                },
+                {
+                    "Dimensions": {
+                        "Key": "LINKED_ACCOUNT",
+                        "Values": [account_id],
+                    },
+                },
+            ]
+        },
+    )
+    if account_id == "943316794729":
+        btsc = kwargs.get("btsc")
+        table = process_billing_results_tags(
+            response.get("ResultsByTime", [])[0].get("Groups", []),
+            account_list,
+            btsc=btsc,
+        )
+    else:
+        table = process_billing_results_tags(
+            response.get("ResultsByTime", [])[0].get("Groups", []),
+            account_list,
+        )
     if table:
         print(tabulate(table, headers="firstrow", tablefmt="fancy_grid"))
 
@@ -317,7 +559,9 @@ def tabulate_to_excel(
     "--account_name", is_flag=False, default="", help="Account Name for Tag Billing"
 )
 @click.option("--tag_key", is_flag=False, default="Name", help="Tag Key")
-def main(str_date, end_date, tag_billing_required, account_name, tag_key):
+@click.option("--entity", is_flag=False, default="offshore", help="Entity Name")
+@click.option("--btsc", is_flag=False, default="", help="Personal or Bentham")
+def main(str_date, end_date, tag_billing_required, account_name, tag_key, entity, btsc):
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
 
     if tag_billing_required in ("True", "true"):
@@ -331,28 +575,49 @@ def main(str_date, end_date, tag_billing_required, account_name, tag_key):
             tags = get_cost_allocation_tags(
                 get_ce_client(), str_date, end_date, tag_key, account_id
             )
-            billing_table = aws_billing_tags(
-                get_ce_client(), str_date, end_date, ACCOUNT_LIST, tag_key, tags
-            )
+            print(btsc)
+            if btsc:
+                billing_table = aws_billing_ec2_volume_snapshots(
+                    get_ce_client(),
+                    str_date,
+                    end_date,
+                    ACCOUNT_LIST,
+                    account_id,
+                    tag_key,
+                    tags,
+                    btsc=btsc,
+                )
+                account_name = f"{account_name}-{btsc}"
+            else:
+                billing_table = aws_billing_ec2_volume_snapshots(
+                    get_ce_client(),
+                    str_date,
+                    end_date,
+                    ACCOUNT_LIST,
+                    account_id,
+                    tag_key,
+                    tags,
+                )
             tabulate_to_excel(
                 data=billing_table,
-                headers=["Tag", "AWS Service", "Charges", "Currency"],
+                headers=["Service", "Tag", "Usage Type", "Charges", "Currency"],
                 filename=f"excel_output/{end_date}_{account_name}_billing_tags_by_{tag_key}.xlsx",
             )
         else:
             print(f"No account_id found for specified account {account_name}")
+    if tag_billing_required in ("false", "False"):
+        aws_billing(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
+        billing_table = aws_billing_service(
+            get_ce_client(), str_date, end_date, ACCOUNT_LIST
+        )
 
-    aws_billing(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
-    billing_table = aws_billing_service(
-        get_ce_client(), str_date, end_date, ACCOUNT_LIST
-    )
-
-    tabulate_to_excel(
-        data=billing_table,
-        headers=["Account Name", "AWS Service", "Charges", "Currency"],
-        filename=f"excel_output/{end_date}_billing_services.xlsx",
-    )
+        tabulate_to_excel(
+            data=billing_table,
+            headers=["Account Name", "AWS Service", "Charges", "Currency"],
+            filename=f"excel_output/{end_date}_billing_services_{entity}.xlsx",
+        )
 
 
 if __name__ == "__main__":
     main()
+    # get_list_of_accounts(get_org_client())
