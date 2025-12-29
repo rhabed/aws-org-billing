@@ -5,4 +5,5 @@ pydantic[email]
 tabulate
 openpyxl
 pandas
+botocore[crt]
 click

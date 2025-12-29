@@ -1,6 +1,11 @@
 #!/bin/sh
-export AWS_PROFILE="kloudr-ksa"
+
+# export AWS_PROFILE="kloudr-ksa"
 # format yyyy-mm-dd
+
+echo "AWS Login to kloudr-ksa"
+aws login
+
 start_date=$1
 end_date=$2
 python aws_billing/aws_billing.py  --str_date $start_date --end_date $end_date --entity ksa
