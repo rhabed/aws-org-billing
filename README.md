@@ -7,13 +7,25 @@ This repository contains Python functions that interact with the AWS Cost Manage
 ![Diagram](./aws_billing_diagram.png)
 
 # Installation
-`python3 -m venv .vevn`
+`python3 -m venv .venv`
 
 `. .venv/bin/activate`
 
-`python3 -m pip install -r requirements`
+`python3 -m pip install -r requirements.txt`
 
 # Execution
+
+## Graphical User Interface (Streamlit)
+We have added a web-based UI for easier execution of reports across different regions.
+Before starting the UI, ensure you authenticate via your terminal for each profile:
+`aws login --profile kloudr-961` 
+`aws login --profile kloudr-leb` 
+`aws login --profile kloudr-ksa`
+
+Then, launch the UI:
+`streamlit run ui/app.py`
+
+## Command Line Interface
 Ensure you have an environment variable named AWS_PROFILE set before running the following command.
 
 `python3 aws_billing/aws_billing.py`
