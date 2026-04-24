@@ -541,30 +541,10 @@ def tabulate_to_excel(
     df.to_excel(filename, sheet_name=sheet_name, index=index)
 
 
-@click.command()
-@click.option(
-    "--str_date",
-    is_flag=False,
-    default=LAST_MONTH.strftime(f"%Y-%m-01"),
-    help="Reports Start Date",
-)
-@click.option("--end_date", is_flag=False, default=FIRST, help="Reports End Date")
-@click.option(
-    "--tag_billing_required",
-    is_flag=False,
-    default="False",
-    help="Is Tag Billing Required? (True|False)",
-)
-@click.option(
-    "--account_name", is_flag=False, default="", help="Account Name for Tag Billing"
-)
-@click.option("--tag_key", is_flag=False, default="Name", help="Tag Key")
-@click.option("--entity", is_flag=False, default="offshore", help="Entity Name")
-@click.option("--btsc", is_flag=False, default="", help="Personal or Bentham")
-def main(str_date, end_date, tag_billing_required, account_name, tag_key, entity, btsc):
+def run_billing(str_date, end_date, tag_billing_required, account_name, tag_key, entity, btsc):
     ACCOUNT_LIST = get_list_of_accounts(get_org_client())
 
-    if tag_billing_required in ("True", "true"):
+    if str(tag_billing_required) in ("True", "true"):
         account = find_account(ACCOUNT_LIST, "account_name", account_name)
         account_name = "".join(account_name).replace(" ", "_").lower()
         account_id = None
@@ -605,7 +585,7 @@ def main(str_date, end_date, tag_billing_required, account_name, tag_key, entity
             )
         else:
             print(f"No account_id found for specified account {account_name}")
-    if tag_billing_required in ("false", "False"):
+    if str(tag_billing_required) in ("false", "False", "None", ""):
         aws_billing(get_ce_client(), str_date, end_date, ACCOUNT_LIST)
         billing_table = aws_billing_service(
             get_ce_client(), str_date, end_date, ACCOUNT_LIST
@@ -617,6 +597,28 @@ def main(str_date, end_date, tag_billing_required, account_name, tag_key, entity
             filename=f"excel_output/{end_date}_billing_services_{entity}.xlsx",
         )
 
+@click.command()
+@click.option(
+    "--str_date",
+    is_flag=False,
+    default=LAST_MONTH.strftime(f"%Y-%m-01"),
+    help="Reports Start Date",
+)
+@click.option("--end_date", is_flag=False, default=FIRST, help="Reports End Date")
+@click.option(
+    "--tag_billing_required",
+    is_flag=False,
+    default="False",
+    help="Is Tag Billing Required? (True|False)",
+)
+@click.option(
+    "--account_name", is_flag=False, default="", help="Account Name for Tag Billing"
+)
+@click.option("--tag_key", is_flag=False, default="Name", help="Tag Key")
+@click.option("--entity", is_flag=False, default="offshore", help="Entity Name")
+@click.option("--btsc", is_flag=False, default="", help="Personal or Bentham")
+def main(str_date, end_date, tag_billing_required, account_name, tag_key, entity, btsc):
+    run_billing(str_date, end_date, tag_billing_required, account_name, tag_key, entity, btsc)
 
 if __name__ == "__main__":
     main()

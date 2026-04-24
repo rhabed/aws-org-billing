@@ -7,3 +7,4 @@ openpyxl
 pandas
 botocore[crt]
 click
+streamlit
