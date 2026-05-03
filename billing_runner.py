@@ -32,4 +32,5 @@ def run_ksa(start_date, end_date):
     print("Running KSA Billing...")
     os.environ["AWS_PROFILE"] = "kloudr-ksa"
     run_billing(start_date, end_date, False, "", "Name", "ksa", "")
+    run_billing(start_date, end_date, True, "AWS Almabani General Contractors", "Department", "ksa", "")
     move_excel_files("./excel_output/ksa")

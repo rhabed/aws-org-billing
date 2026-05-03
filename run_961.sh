@@ -3,7 +3,9 @@
 # export AWS_PROFILE="kloudr-961"
 # format yyyy-mm-dd
 echo "AWS Login to kloudr-961"
-aws login
+aws login --profile kloudr-961
+
+export AWS_PROFILE="kloudr-961"
 
 start_date=$1
 end_date=$2
