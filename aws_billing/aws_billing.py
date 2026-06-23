@@ -203,6 +203,9 @@ def process_billing_results_tags(groups, account_list, **kwargs) -> list:
             name = getattr(account, "account_name")
         if name.startswith("Name$"):
             name = name[5:]
+        if name.startswith("Department$"):
+            name = name[11:]
+        # breakpoint()
         if btsc is None:
             usage = (
                 group.get("Keys", [])[1] if len(group.get("Keys")) > 1 else "Total"
@@ -215,7 +218,16 @@ def process_billing_results_tags(groups, account_list, **kwargs) -> list:
             if amount != 0 and check_elements_not_in_string(
                 ["AWS-Out-Bytes", "DataTransfer"], usage
             ):
-                table.append(["Amazon Compute Cloud", name, usage, amount, unit])
+                if (
+                    "db." in usage.lower()
+                    or "aurora" in usage.lower()
+                    or "mysql" in usage.lower()
+                    or "rds" in usage.lower()
+                ):
+                    service = "Amazon Relational Database Service"
+                else:
+                    service = "Amazon Compute Cloud"
+                table.append([service, name, usage, amount, unit])
             else:
                 empty_list.append((name, amount))
         else:
@@ -238,9 +250,16 @@ def process_billing_results_tags(groups, account_list, **kwargs) -> list:
                     if amount != 0 and check_elements_not_in_string(
                         ["AWS-Out-Bytes", "DataTransfer"], usage
                     ):
-                        table.append(
-                            ["Amazon Compute Cloud", name, usage, amount, unit]
-                        )
+                        if (
+                            "db." in usage.lower()
+                            or "aurora" in usage.lower()
+                            or "mysql" in usage.lower()
+                            or "rds" in usage.lower()
+                        ):
+                            service = "Amazon Relational Database Service"
+                        else:
+                            service = "Amazon Compute Cloud"
+                        table.append([service, name, usage, amount, unit])
                     else:
                         empty_list.append((name, amount))
             if btsc == "btsc":
@@ -262,9 +281,16 @@ def process_billing_results_tags(groups, account_list, **kwargs) -> list:
                     if amount != 0 and check_elements_not_in_string(
                         ["AWS-Out-Bytes", "DataTransfer"], usage
                     ):
-                        table.append(
-                            ["Amazon Compute Cloud", name, usage, amount, unit]
-                        )
+                        if (
+                            "db." in usage.lower()
+                            or "aurora" in usage.lower()
+                            or "mysql" in usage.lower()
+                            or "rds" in usage.lower()
+                        ):
+                            service = "Amazon Relational Database Service"
+                        else:
+                            service = "Amazon Compute Cloud"
+                        table.append([service, name, usage, amount, unit])
                     else:
                         empty_list.append((name, amount))
 
@@ -474,6 +500,7 @@ def aws_billing_ec2_volume_snapshots(
                         "Values": [
                             "EC2 - Other",
                             "Amazon Elastic Compute Cloud - Compute",
+                            "Amazon Relational Database Service",
                         ],
                     },
                 },
