@@ -225,6 +225,12 @@ def process_billing_results_tags(groups, account_list, **kwargs) -> list:
                     or "rds" in usage.lower()
                 ):
                     service = "Amazon Relational Database Service"
+                elif "s3" in usage.lower() or "requests-tier" in usage.lower():
+                    service = "Amazon Simple Storage Service"
+                elif "load" in usage.lower():
+                    service = "Amazon Elastic Load Balancing"
+                elif "waf" in usage.lower() or "global" in usage.lower():
+                    service = "AWS WAF"
                 else:
                     service = "Amazon Compute Cloud"
                 table.append([service, name, usage, amount, unit])
@@ -469,6 +475,24 @@ def aws_billing_ec2_volume_snapshots(
 ):
     """Fetches AWS billing cost data grouped by Tag and service."""
 
+    DIMENSION_ANY = [
+                "EC2 - Other",
+                "Amazon Elastic Compute Cloud - Compute",
+                "Amazon Relational Database Service",
+                "AWS WAF",
+                "Amazon Simple Storage Service",
+                "Amazon Elastic Load Balancing"
+            ]
+    DIMENSION_BTSC = [
+                "EC2 - Other",
+                "Amazon Elastic Compute Cloud - Compute",
+            ]
+
+    if account_id == "943316794729":
+        DIMENSION = DIMENSION_BTSC
+    else:
+        DIMENSION = DIMENSION_ANY
+
     # still cannot read the correct services
     response = boto3_client.get_cost_and_usage(
         TimePeriod={"Start": start_date, "End": end_date},
@@ -497,11 +521,7 @@ def aws_billing_ec2_volume_snapshots(
                 {
                     "Dimensions": {
                         "Key": "SERVICE",
-                        "Values": [
-                            "EC2 - Other",
-                            "Amazon Elastic Compute Cloud - Compute",
-                            "Amazon Relational Database Service",
-                        ],
+                        "Values": DIMENSION,
                     },
                 },
                 {
